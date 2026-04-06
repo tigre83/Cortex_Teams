@@ -73,12 +73,12 @@ app.post('/api/messages', async (req, res) => {
     console.log(`Respuesta: ${respuesta}`);
 
     const tokenRes = await axios.post(
-      `https://login.microsoftonline.com/901d036d-69a0-48e1-b908-8fdc38f0030e/oauth2/v2.0/token`,
+      `https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token`,
       new URLSearchParams({
         grant_type: 'client_credentials',
         client_id: process.env.BOT_APP_ID,
         client_secret: process.env.BOT_APP_PASSWORD,
-        scope: 'https://api.901d036d-69a0-48e1-b908-8fdc38f0030e/.default'
+        scope: 'https://api.botframework.com/.default'
       })
     );
 
