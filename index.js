@@ -7,10 +7,10 @@ app.use(express.json());
 const CORTEX_URL = 'https://app-back-cortexagentshub-test.azurewebsites.net/api/v1/messages/send';
 const CORTEX_FLOW_ID = process.env.CORTEX_FLOW_ID;
 const CORTEX_CHANNEL_ID = process.env.CORTEX_CHANNEL_ID;
+const CORTEX_TOKEN = process.env.CORTEX_TOKEN;
 
 app.post('/api/messages', async (req, res) => {
   res.sendStatus(200);
-  
   const activity = req.body;
   if (activity.type !== 'message' || !activity.text) return;
 
@@ -21,8 +21,6 @@ app.post('/api/messages', async (req, res) => {
   const replyToId = activity.id;
 
   console.log(`Mensaje: ${userMessage}`);
-  console.log(`serviceUrl: ${serviceUrl}`);
-  console.log(`conversationId: ${conversationId}`);
 
   try {
     const cortexResponse = await axios.post(CORTEX_URL, {
@@ -34,9 +32,11 @@ app.post('/api/messages', async (req, res) => {
         channelId: CORTEX_CHANNEL_ID,
         channel_config_id: CORTEX_CHANNEL_ID
       }
+    }, {
+      headers: { Authorization: `Bearer ${CORTEX_TOKEN}` }
     });
 
-    console.log('Cortex response:', JSON.stringify(cortexResponse.data));
+    console.log('Cortex OK:', cortexResponse.data?.response);
     const respuesta = cortexResponse.data?.response || 'No se obtuvo respuesta.';
 
     const tokenResponse = await axios.post(
@@ -50,21 +50,18 @@ app.post('/api/messages', async (req, res) => {
     );
 
     const token = tokenResponse.data.access_token;
-    console.log('Token obtenido OK');
-
     await axios.post(
       `${serviceUrl}v3/conversations/${conversationId}/activities/${replyToId}`,
       { type: 'message', text: respuesta },
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
-    console.log('Respuesta enviada a Teams OK');
+    console.log('Enviado a Teams OK');
   } catch (error) {
-    console.error('Error completo:', JSON.stringify(error.response?.data || error.message));
+    console.error('Error:', JSON.stringify(error.response?.data || error.message));
   }
 });
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
-
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Supreme Middleware corriendo en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`Supreme Middleware en puerto ${PORT}`));
