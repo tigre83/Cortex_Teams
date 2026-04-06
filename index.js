@@ -55,6 +55,19 @@ async function sendToCortex(userId, message) {
   }
 }
 
+async function getBFToken() {
+  const res = await axios.post(
+    `https://login.microsoftonline.com/901d036d-69a0-48e1-b908-8fdc38f0030e/oauth2/v2.0/token`,
+    new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: process.env.BOT_APP_ID,
+      client_secret: process.env.BOT_APP_PASSWORD,
+      scope: 'https://api.botframework.com/.default'
+    })
+  );
+  return res.data.access_token;
+}
+
 app.post('/api/messages', async (req, res) => {
   res.sendStatus(200);
   const activity = req.body;
@@ -69,23 +82,25 @@ app.post('/api/messages', async (req, res) => {
   console.log(`Mensaje: ${userMessage}`);
 
   try {
+    const bfToken = await getBFToken();
+
+    // Enviar typing indicator
+    await axios.post(
+      `${serviceUrl}v3/conversations/${conversationId}/activities`,
+      {
+        type: 'typing',
+        from: { id: process.env.BOT_APP_ID }
+      },
+      { headers: { Authorization: `Bearer ${bfToken}` } }
+    );
+
     const respuesta = await sendToCortex(userId, userMessage);
     console.log(`Respuesta: ${respuesta}`);
-
-    const tokenRes = await axios.post(
-      `https://login.microsoftonline.com/901d036d-69a0-48e1-b908-8fdc38f0030e/oauth2/v2.0/token`,
-      new URLSearchParams({
-        grant_type: 'client_credentials',
-        client_id: process.env.BOT_APP_ID,
-        client_secret: process.env.BOT_APP_PASSWORD,
-        scope: 'https://api.botframework.com/.default'
-      })
-    );
 
     await axios.post(
       `${serviceUrl}v3/conversations/${conversationId}/activities/${replyToId}`,
       { type: 'message', text: respuesta },
-      { headers: { Authorization: `Bearer ${tokenRes.data.access_token}` } }
+      { headers: { Authorization: `Bearer ${bfToken}` } }
     );
 
     console.log('Enviado a Teams OK');
