@@ -35,8 +35,7 @@ async function sendToCortex(userId, message) {
         channel_config_id: CORTEX_CHANNEL_ID
       }
     }, { headers: { Authorization: `Bearer ${cortexToken}` } });
-    console.log('Cortex data completo:', JSON.stringify(res.data));
-    return res.data?.response || res.data?.message || res.data?.text || JSON.stringify(res.data);
+    return res.data?.data?.response || 'Sin respuesta';
   } catch (err) {
     if (err.response?.status === 401) {
       await getCortexToken();
@@ -50,8 +49,7 @@ async function sendToCortex(userId, message) {
           channel_config_id: CORTEX_CHANNEL_ID
         }
       }, { headers: { Authorization: `Bearer ${cortexToken}` } });
-      console.log('Cortex data completo (retry):', JSON.stringify(res.data));
-      return res.data?.response || res.data?.message || res.data?.text || JSON.stringify(res.data);
+      return res.data?.data?.response || 'Sin respuesta';
     }
     throw err;
   }
@@ -72,7 +70,7 @@ app.post('/api/messages', async (req, res) => {
 
   try {
     const respuesta = await sendToCortex(userId, userMessage);
-    console.log(`Respuesta final: ${respuesta}`);
+    console.log(`Respuesta: ${respuesta}`);
 
     const tokenRes = await axios.post(
       `https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token`,
