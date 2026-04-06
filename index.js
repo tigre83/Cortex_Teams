@@ -4,10 +4,56 @@ const axios = require('axios');
 const app = express();
 app.use(express.json());
 
-const CORTEX_URL = 'https://app-back-cortexagentshub-test.azurewebsites.net/api/v1/messages/send';
+const CORTEX_BASE = 'https://app-back-cortexagentshub-test.azurewebsites.net';
 const CORTEX_FLOW_ID = process.env.CORTEX_FLOW_ID;
 const CORTEX_CHANNEL_ID = process.env.CORTEX_CHANNEL_ID;
-const CORTEX_TOKEN = process.env.CORTEX_TOKEN;
+const CORTEX_USER = process.env.CORTEX_USER;
+const CORTEX_PASS = process.env.CORTEX_PASS;
+
+let cortexToken = null;
+
+async function getCortexToken() {
+  const res = await axios.post(`${CORTEX_BASE}/api/admin/login`, {
+    username: CORTEX_USER,
+    password: CORTEX_PASS
+  });
+  cortexToken = res.data.token;
+  console.log('Token Cortex renovado OK');
+  return cortexToken;
+}
+
+async function sendToCortex(userId, message) {
+  if (!cortexToken) await getCortexToken();
+  try {
+    const res = await axios.post(`${CORTEX_BASE}/api/v1/messages/send`, {
+      channelType: 'teams',
+      userId,
+      content: message,
+      metadata: {
+        flowId: CORTEX_FLOW_ID,
+        channelId: CORTEX_CHANNEL_ID,
+        channel_config_id: CORTEX_CHANNEL_ID
+      }
+    }, { headers: { Authorization: `Bearer ${cortexToken}` } });
+    return res.data?.response;
+  } catch (err) {
+    if (err.response?.status === 401) {
+      await getCortexToken();
+      const res = await axios.post(`${CORTEX_BASE}/api/v1/messages/send`, {
+        channelType: 'teams',
+        userId,
+        content: message,
+        metadata: {
+          flowId: CORTEX_FLOW_ID,
+          channelId: CORTEX_CHANNEL_ID,
+          channel_config_id: CORTEX_CHANNEL_ID
+        }
+      }, { headers: { Authorization: `Bearer ${cortexToken}` } });
+      return res.data?.response;
+    }
+    throw err;
+  }
+}
 
 app.post('/api/messages', async (req, res) => {
   res.sendStatus(200);
@@ -23,23 +69,10 @@ app.post('/api/messages', async (req, res) => {
   console.log(`Mensaje: ${userMessage}`);
 
   try {
-    const cortexResponse = await axios.post(CORTEX_URL, {
-      channelType: 'teams',
-      userId: userId,
-      content: userMessage,
-      metadata: {
-        flowId: CORTEX_FLOW_ID,
-        channelId: CORTEX_CHANNEL_ID,
-        channel_config_id: CORTEX_CHANNEL_ID
-      }
-    }, {
-      headers: { Authorization: `Bearer ${CORTEX_TOKEN}` }
-    });
+    const respuesta = await sendToCortex(userId, userMessage);
+    console.log(`Cortex responde: ${respuesta}`);
 
-    console.log('Cortex OK:', cortexResponse.data?.response);
-    const respuesta = cortexResponse.data?.response || 'No se obtuvo respuesta.';
-
-    const tokenResponse = await axios.post(
+    const tokenRes = await axios.post(
       `https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token`,
       new URLSearchParams({
         grant_type: 'client_credentials',
@@ -49,11 +82,10 @@ app.post('/api/messages', async (req, res) => {
       })
     );
 
-    const token = tokenResponse.data.access_token;
     await axios.post(
       `${serviceUrl}v3/conversations/${conversationId}/activities/${replyToId}`,
       { type: 'message', text: respuesta },
-      { headers: { Authorization: `Bearer ${token}` } }
+      { headers: { Authorization: `Bearer ${tokenRes.data.access_token}` } }
     );
 
     console.log('Enviado a Teams OK');
