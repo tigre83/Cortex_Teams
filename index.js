@@ -20,7 +20,9 @@ app.post('/api/messages', async (req, res) => {
   const conversationId = activity.conversation?.id;
   const replyToId = activity.id;
 
-  console.log(`Mensaje de ${userId}: ${userMessage}`);
+  console.log(`Mensaje: ${userMessage}`);
+  console.log(`serviceUrl: ${serviceUrl}`);
+  console.log(`conversationId: ${conversationId}`);
 
   try {
     const cortexResponse = await axios.post(CORTEX_URL, {
@@ -34,8 +36,8 @@ app.post('/api/messages', async (req, res) => {
       }
     });
 
+    console.log('Cortex response:', JSON.stringify(cortexResponse.data));
     const respuesta = cortexResponse.data?.response || 'No se obtuvo respuesta.';
-    console.log(`Respuesta de Cortex: ${respuesta}`);
 
     const tokenResponse = await axios.post(
       `https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token`,
@@ -48,29 +50,21 @@ app.post('/api/messages', async (req, res) => {
     );
 
     const token = tokenResponse.data.access_token;
+    console.log('Token obtenido OK');
 
     await axios.post(
       `${serviceUrl}v3/conversations/${conversationId}/activities/${replyToId}`,
-      {
-        type: 'message',
-        text: respuesta
-      },
-      {
-        headers: { Authorization: `Bearer ${token}` }
-      }
+      { type: 'message', text: respuesta },
+      { headers: { Authorization: `Bearer ${token}` } }
     );
 
-    console.log('Respuesta enviada a Teams');
+    console.log('Respuesta enviada a Teams OK');
   } catch (error) {
-    console.error('Error:', error.response?.data || error.message);
+    console.error('Error completo:', JSON.stringify(error.response?.data || error.message));
   }
 });
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
-});
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Supreme Middleware corriendo en puerto ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Supreme Middleware corriendo en puerto ${PORT}`));
