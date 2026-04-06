@@ -78,7 +78,7 @@ app.post('/api/messages', async (req, res) => {
         grant_type: 'client_credentials',
         client_id: process.env.BOT_APP_ID,
         client_secret: process.env.BOT_APP_PASSWORD,
-        scope: 'https://api.common/.default'
+        scope: 'https://api.botframework.com/.default'
       })
     );
 
